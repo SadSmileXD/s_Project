@@ -18,6 +18,10 @@ public class BossMissile : Bullet
     // Update is called once per frame
     void Update()
     {
+        if(target ==null)
+        {
+            Destroy(this.gameObject);
+        }
         nav.SetDestination(target.position);
     }
 }

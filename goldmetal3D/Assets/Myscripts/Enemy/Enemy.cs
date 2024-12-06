@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
+using UnityEditor.Timeline.Actions;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.UI;
@@ -13,8 +14,9 @@ public class Enemy : MonoBehaviour
     public int maxHealth;
     public int curHealth;
 
+    public int Score;
     public Transform target;
-
+    public GameObject[] coins;
    public bool isChase;
     public bool isAttack;
     public bool isDead;
@@ -30,82 +32,102 @@ public class Enemy : MonoBehaviour
 
     public GameObject bullet;
 
-   
+    private   Dictionary<Type, Action> enemyActions;//리팩
+    private Dictionary<Type, System.Func<IEnumerator>> attackActions;
+    public float targetRadius = 0;
+    public  float tartgetRange = 0;
+    public GameManager manager;
+
+
+
+
     private  void Targerting()
     {
         if(!isDead && m_enemyType != Type.D)
         {
-            float targetRadius = 0;
-            float tartgetRange = 0;
 
-            switch (m_enemyType)
+            if (enemyActions.TryGetValue(m_enemyType, out var action))
             {
-                case Type.A:
-                    targetRadius = 1.5f;
-                    tartgetRange = 1f;
-                    break;
-                case Type.B:
-                    targetRadius = 1f;
-                    tartgetRange = 10f;
-                    break;
-
-                case Type.C:
-                    targetRadius = 0.5f;
-                    tartgetRange = 25f;
-                    break;
+                action(); // Invoke the function corresponding to m_enemyType
             }
-
+            ///<summary>
+            ///switch (m_enemyType)
+            ///{
+            ///    case Type.A:
+            ///        targetRadius = 1.5f;
+            ///        tartgetRange = 1f;
+            ///        break;
+            ///    case Type.B:
+            ///        targetRadius = 1f;
+            ///        tartgetRange = 10f;
+            ///        break;
+            ///
+            ///    case Type.C:
+            ///        targetRadius = 0.5f;
+            ///        tartgetRange = 25f;
+            ///        break;
+            ///}
+            ///</summary>
+           
             RaycastHit[] rayHits = Physics.SphereCastAll(
                 transform.position, targetRadius, transform.forward, tartgetRange, LayerMask.GetMask("Player"));
+
             if (rayHits.Length > 0 && !isAttack)
             {
-                StartCoroutine(Attack());
+                //  StartCoroutine(Attack());
+                if (attackActions.TryGetValue(m_enemyType, out var attackAction))
+                {
+                    StartCoroutine(attackAction());
+                }
             }
         }
       
     }
       IEnumerator Attack()
     {
-        isChase = false;//추적을 멈추고
-        isAttack = true;//공격
-        ani.SetBool("isAttack", true);//공격애니메이션 실행
-       
-        switch(m_enemyType)
+        //isChase = false;//추적을 멈추고
+        //isAttack = true;//공격
+        //ani.SetBool("isAttack", true);
+      
+
+        if (attackActions.TryGetValue(m_enemyType, out var attackAction))
         {
-            case Type.A:
-                yield return new WaitForSeconds(0.2f);
-                meleeArea.enabled = true;
-                yield return new WaitForSeconds(1f);
-                meleeArea.enabled = false;
-                break;
-
-            case Type.B://돌격
-                yield return new WaitForSeconds(0.1f);
-                rigid.AddForce(transform.forward * 20, ForceMode.Impulse);
-                meleeArea.enabled = true;
-
-                yield return new WaitForSeconds(0.5f);
-                rigid.velocity = Vector3.zero;
-                meleeArea.enabled = false;
-
-                yield return new WaitForSeconds(2f);
-                break;
-            case Type.C:
-                yield return new WaitForSeconds(0.5f);
-                GameObject instantBullet=Instantiate(bullet,transform.position+new Vector3(1,1,0),transform.rotation);
-                Rigidbody rigidBullet=instantBullet.GetComponent<Rigidbody>();
-                rigidBullet.velocity = transform.forward * 20;
-
-                yield return new WaitForSeconds(2f);
-                break;
-
+            yield return StartCoroutine(attackAction());
         }
-     
-       
 
-        isChase = true;//추적을 멈추고
-        isAttack = false;//공격
-        ani.SetBool("isAttack", false);//공격애니메이션 실행
+        ///<summary>
+      ///switch (m_enemyType)
+      ///{
+      ///    case Type.A:
+      ///        yield return new WaitForSeconds(0.2f);
+      ///        meleeArea.enabled = true;
+      ///        yield return new WaitForSeconds(1f);
+      ///        meleeArea.enabled = false;
+      ///        break;
+      ///    case Type.B://돌격
+      ///        yield return new WaitForSeconds(0.1f);
+      ///        rigid.AddForce(transform.forward * 20, ForceMode.Impulse);
+      ///        meleeArea.enabled = true;
+       ///        yield return new WaitForSeconds(0.5f);
+       ///        rigid.velocity = Vector3.zero;
+       ///        meleeArea.enabled = false;
+       ///        yield return new WaitForSeconds(2f);
+       ///        break;
+       ///    case Type.C:
+       ///        yield return new WaitForSeconds(0.5f);
+       ///        GameObject instantBullet = Instantiate(bullet, transform.position + new Vector3(1, 1, 0), transform.rotation);
+       ///        Rigidbody rigidBullet = instantBullet.GetComponent<Rigidbody>();
+       ///        rigidBullet.velocity = transform.forward * 20;
+       ///        yield return new WaitForSeconds(2f);
+        ///        break;
+        ///}
+        ///<summary>
+        //isChase = true;//추적을 멈추고
+        //isAttack = false;//공격
+        //ani.SetBool("isAttack", false);//공격애니메이션 실행
+
+
+
     }
       void FixedUpdate()
     {
@@ -120,7 +142,21 @@ public class Enemy : MonoBehaviour
     }
       void Awake()
     {
-       // target = GameObject.Find("Player").GetComponent<Transform>();
+
+        attackActions = new Dictionary<Type, System.Func<IEnumerator>>
+        {
+            { Type.A, AttackTypeA },
+            { Type.B, AttackTypeB },
+            { Type.C, AttackTypeC }
+        };
+        // Initialize the dictionary with functions for each type
+        enemyActions = new Dictionary<Type, Action>
+        {
+            { Type.A, ConfigureTypeA },
+            { Type.B, ConfigureTypeB },
+            { Type.C, ConfigureTypeC }
+        };
+
         ani = GetComponentInChildren<Animator>();
         nav = GetComponent<NavMeshAgent>();
         meshs = GetComponentsInChildren<MeshRenderer>();
@@ -143,6 +179,10 @@ public class Enemy : MonoBehaviour
     }
     void Update()
     {
+        if(target ==null)
+        {
+            target = GameObject.Find("Player").GetComponent<Transform>();
+        }
         if(nav.enabled && m_enemyType != Type.D)
         {
             nav.SetDestination(target.position);
@@ -203,11 +243,32 @@ public class Enemy : MonoBehaviour
             {
                 mesh.material.color = Color.gray;
             }
+
             gameObject.layer = 11;
             isChase = false;//죽으면 비활성화
             nav.enabled = false; //죽으면 네비게이션 비활성화
             isDead = true;
             ani.SetTrigger("doDie");//죽으면 죽음 애니메이션 실행
+            Player player=target.GetComponent<Player>();
+            player.score += Score;
+            int ranCoin = UnityEngine.Random.Range(0, 3);
+            Instantiate(coins[ranCoin], transform.position, Quaternion.identity);
+
+            switch (m_enemyType)
+            {
+                case Type.A:
+                    manager.enemyCntA--;
+                    break;
+                case Type.B:
+                    manager.enemyCntB--;
+                    break;
+                case Type.C:
+                    manager.enemyCntC--;
+                    break;
+                case Type.D:
+                    manager.enemyCntD--;
+                    break;
+            }
 
             if (isGrenade)
             { 
@@ -223,7 +284,7 @@ public class Enemy : MonoBehaviour
                 reactVec += Vector3.up;
                 rigid.AddForce(reactVec * 5, ForceMode.Impulse);
             }
-            if(m_enemyType != Type.D)
+          
             Destroy(this.gameObject, 4);
         }
 
@@ -233,5 +294,73 @@ public class Enemy : MonoBehaviour
         curHealth -= 100;
         Vector3 reactVec = transform.position - explosionPos;
         StartCoroutine(OnDamage(reactVec,true));
+    }
+
+
+    //리팩
+    private void ConfigureTypeA()
+    {
+        targetRadius = 1.5f;
+        tartgetRange = 1f;
+    }
+
+    private void ConfigureTypeB()
+    {
+        targetRadius = 1f;
+        tartgetRange = 10f;
+    }
+
+    private void ConfigureTypeC()
+    {
+        targetRadius = 0.5f;
+        tartgetRange = 25f;
+    }
+    private IEnumerator AttackTypeA()
+    {
+        isChase = false;//추적을 멈추고
+        isAttack = true;//공격
+        ani.SetBool("isAttack", true);
+        yield return new WaitForSeconds(0.2f);
+        meleeArea.enabled = true;
+        yield return new WaitForSeconds(1f);
+        meleeArea.enabled = false;
+        isChase = true;//추적을 멈추고
+        isAttack = false;//공격
+        ani.SetBool("isAttack", false);//공격애니메이션 실행
+    }
+
+    private IEnumerator AttackTypeB()
+    {
+        isChase = false;//추적을 멈추고
+        isAttack = true;//공격
+        ani.SetBool("isAttack", true);
+        yield return new WaitForSeconds(0.1f);
+        rigid.AddForce(transform.forward * 20, ForceMode.Impulse);
+        meleeArea.enabled = true;
+
+        yield return new WaitForSeconds(0.5f);
+        rigid.velocity = Vector3.zero;
+        meleeArea.enabled = false;
+
+        yield return new WaitForSeconds(2f);
+        isChase = true;//추적을 멈추고
+        isAttack = false;//공격
+        ani.SetBool("isAttack", false);//공격애니메이션 실행
+    }
+
+    private IEnumerator AttackTypeC()
+    {
+        isChase = false;//추적을 멈추고
+        isAttack = true;//공격
+        ani.SetBool("isAttack", true);
+        yield return new WaitForSeconds(0.5f);
+            GameObject instantBullet = Instantiate(bullet, transform.position + new Vector3(1, 1, 0), transform.rotation);
+            Rigidbody rigidBullet = instantBullet.GetComponent<Rigidbody>();
+            rigidBullet.velocity = transform.forward * 20;
+
+            yield return new WaitForSeconds(2f);
+        isChase = true;//추적을 멈추고
+        isAttack = false;//공격
+        ani.SetBool("isAttack", false);//공격애니메이션 실행
     }
 }

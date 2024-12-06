@@ -14,10 +14,12 @@ public class Boss : Enemy
     Vector3 lookVec;
     Vector3 tauntVec;
 
-   public  bool isLook;
-   
-   private void Awake()
+   public  bool isLook=true;
+    
+    private void Awake()
     {
+      
+        target = GameObject.Find("Player").GetComponent<Transform>();
         ani = GetComponentInChildren<Animator>();
       
         meshs = GetComponentsInChildren<MeshRenderer>();
@@ -39,6 +41,10 @@ public class Boss : Enemy
     // Update is called once per frame
     void Update()
     {
+        if(target ==null)
+        {
+            Destroy(this.gameObject);
+        }
         if (isDead)
         {
             StopAllCoroutines();
@@ -53,17 +59,21 @@ public class Boss : Enemy
             transform.LookAt(target.position + lookVec);
         }
         else
-        {if(!isLook)
-            nav.SetDestination(tauntVec);
+        {  if(!isLook)
+            {
+                   nav.SetDestination(tauntVec);
+            }
+         
         }
     }
 
     IEnumerator Think()
     {
-        yield return new WaitForSeconds(0.1f);
+        transform.LookAt(target.position + lookVec);
+        yield return new WaitForSeconds(0.3f);
 
-        int ranAction= UnityEngine.Random.Range(0,4);
-        ranAction = 4;
+        int ranAction= UnityEngine.Random.Range(0,5);
+       
         switch (ranAction)
         {
             case 0:
@@ -94,8 +104,6 @@ public class Boss : Enemy
         GameObject instantMissileB = Instantiate(missile, missilePoartB.position, missilePoartB.rotation);
         BossMissile bossMissileB = instantMissileB.GetComponent<BossMissile>();
         bossMissileA.target = GameObject.Find("Player").GetComponent<Transform>();
-        
-
         yield return new WaitForSeconds(2.5f);
 
         StartCoroutine(Think());
@@ -113,7 +121,7 @@ public class Boss : Enemy
 
     IEnumerator Taunt()
     {
-        tauntVec=target.position  ;
+        tauntVec=target.position ;
        
        
 
@@ -122,7 +130,7 @@ public class Boss : Enemy
         boxCollider.enabled = false;
         ani.SetTrigger("doTaunt");
       
-        yield return new WaitForSeconds(3f);
+        yield return new WaitForSeconds(1.5f);
         meleeArea.enabled = true;
 
         yield return new WaitForSeconds(0.5f);
@@ -130,11 +138,8 @@ public class Boss : Enemy
 
         yield return new WaitForSeconds(1f);
         isLook = true;
-       
         nav.isStopped = true;
         boxCollider.enabled = true;
-
-        yield return new WaitForSeconds(3f);
         StartCoroutine(Think());
     }
 }

@@ -16,6 +16,10 @@ public class Orbit : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        if(target ==null)
+        {
+            Destroy(this.gameObject);
+        }
         transform.position = target.position  + offset   ;
        
         transform.RotateAround(target.position,

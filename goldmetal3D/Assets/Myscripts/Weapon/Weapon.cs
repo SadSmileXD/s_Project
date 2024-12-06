@@ -48,9 +48,9 @@ public class Weapon : MonoBehaviour
         yield return new WaitForSeconds(0.1f); //0.1√  ¥Î±‚
         meleeArea.enabled = true;
         trailEffect.enabled = true;
-        yield return new WaitForSeconds(0.3f);
+        yield return new WaitForSeconds(0.2f);
         meleeArea.enabled = false;
-        yield return new WaitForSeconds(0.3f);
+        yield return new WaitForSeconds(0.1f);
         trailEffect.enabled = false;
     }
     IEnumerator shot()

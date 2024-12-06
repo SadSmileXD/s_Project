@@ -19,9 +19,10 @@ public class Player : MonoBehaviour
     private Rigidbody rigid;
 
     public bool[] hasWeapons;
-  
+  public GameManager manager;
     public int hasGrenades;
- 
+
+    public int score;
     public int ammo;
     public int coin;
     public int health;
@@ -55,13 +56,14 @@ public class Player : MonoBehaviour
     private bool _isBorder;
     private bool _gDown;
     private bool _isDamage;
-
+    private bool _isShop;
+    public bool isDead;
     private GameObject _nearObject;
     public GameObject[] grenades;
     public GameObject[] Weapons;
     public GameObject grenadeObj;
 
-    private Weapon _equipWeapon;
+    public Weapon _equipWeapon;
 
     public CinemachineVirtualCamera [] virtualCamera;
 
@@ -81,10 +83,11 @@ public class Player : MonoBehaviour
     }
     private void Awake()
     {
+       // PlayerPrefs.SetInt("Max Score Text",112500);
         meshs = GetComponentsInChildren<MeshRenderer>();
           //cam = GetComponent<Camera[]>();
           playerAni = GetComponent<PlayerAnimaction>();
-        
+        manager = GameObject.Find("GameManager").GetComponent<GameManager>();
 
         anim =GetComponentInChildren<Animator>();
 
@@ -97,6 +100,11 @@ public class Player : MonoBehaviour
             { Item.Type.Heart, HandleHeart },
             { Item.Type.Grenade, HandleGrenade }
         };
+
+        if(PlayerPrefs.HasKey("Max Score Text"))
+        {
+            PlayerPrefs.SetInt("Max Score Text", 0);
+        }
     }
 
     // Update is called once per frame
@@ -146,7 +154,7 @@ public class Player : MonoBehaviour
         {
             moveVec = dodgeVec;
         }
-        if (_isSwap ||_isReload || !isFireReady)
+        if (_isSwap ||_isReload || !isFireReady   )
             moveVec = Vector3.zero;
         
         if(!_isBorder)
@@ -165,7 +173,7 @@ public class Player : MonoBehaviour
         //  키보드에 의한 회전
         transform.LookAt(transform.position + moveVec);
         //마우스에 의한 회전
-        if(_fDown)
+        if(_fDown && !isDead)
         {
             Ray ray = followCamera.ScreenPointToRay(Input.mousePosition);
             RaycastHit rayHit;
@@ -188,7 +196,7 @@ public class Player : MonoBehaviour
 
         fireDelay += Time.deltaTime;
         isFireReady = _equipWeapon.rate < fireDelay;
-         if (_fDown && isFireReady && !_isDodge && !_isSwap)
+         if (_fDown && isFireReady && !_isDodge && !_isSwap && !_isShop )
         {
             _equipWeapon.Use();
             // anim.SetTrigger("doSwing");
@@ -209,7 +217,8 @@ public class Player : MonoBehaviour
     }
     private void GetInput()
     {
-       
+
+        
 
         //float
         hAxis = Input.GetAxisRaw("Horizontal");
@@ -230,6 +239,9 @@ public class Player : MonoBehaviour
 
     void Reload()
     {
+
+      
+
         if (_equipWeapon == null)
             return;
         
@@ -239,7 +251,7 @@ public class Player : MonoBehaviour
         if (ammo == 0)
             return;
 
-        if(_rDown && !_isJump && !_isDodge && !_isSwap && isFireReady)
+        if(_rDown && !_isJump && !_isDodge && !_isSwap && isFireReady && !_isShop)
         {
             playerAni.DoReload();
             _isReload = true;
@@ -291,7 +303,7 @@ public class Player : MonoBehaviour
     void Dodge()
     {
         //  점프고 움직이는 상태이고 , 점프가 아니고 isDodge상태가 아닌경우
-        if (_jDown && moveVec !=Vector3.zero && !_isJump && !_isDodge && !_isSwap)
+        if (_jDown && moveVec !=Vector3.zero && !_isJump && !_isDodge && !_isSwap  )
         {
             dodgeVec = moveVec;
             speed *= 2;
@@ -368,7 +380,7 @@ public class Player : MonoBehaviour
 
     void Interation()
     {
-        if (_iDown && _nearObject != null  &&  !_isJump && !_isDodge)
+        if (_iDown && _nearObject != null  &&  !_isJump && !_isDodge   )
         {
             if(_nearObject.tag =="Weapon")
             {
@@ -376,6 +388,12 @@ public class Player : MonoBehaviour
                 int weaponidex = item.value;
                 hasWeapons[weaponidex] = true;
                 Destroy(_nearObject);
+            }
+            else if (_nearObject.tag == "Shop")
+            {
+                Shop shop = _nearObject.GetComponent<Shop>();
+                shop.Enter(this);
+                _isShop = true;
             }
         }
 
@@ -440,6 +458,8 @@ public class Player : MonoBehaviour
     }
     IEnumerator OnDamage(bool isBooAtk)
     {// 무적 시간
+
+     
         _isDamage = true;
         foreach(var mesh in meshs)
         {
@@ -455,12 +475,26 @@ public class Player : MonoBehaviour
         {
             rigid.velocity = Vector3.zero;  
         }
-            _isDamage = false;
+        if (health <= 0 && !isDead)
+        {
+            OnDie();
+        }
+        _isDamage = false;
         foreach (var mesh in meshs)
         {
             mesh.material.color = Color.white;
         }
 
+       
+
+    }
+    void OnDie()
+    {
+        this.gameObject.SetActive(false);
+        anim.SetTrigger("doDie");
+        isDead = true;
+        Destroy(this.gameObject);
+        manager.GameOver();
     }
     private void OnCollisionEnter(Collision collision)
     {
@@ -480,16 +514,25 @@ public class Player : MonoBehaviour
         {
             _nearObject = null;
         }
+        else if (other.tag =="Shop")
+        {
+            Shop shop = other.GetComponent<Shop>();
+            shop.Exit();
+            _isShop = false;
+            _nearObject = null;
+        }
     }
     private void OnTriggerStay(Collider other)
     {
-        if ("Weapon" == other.tag)
+        if ("Weapon" == other.tag|| "Shop" == other.tag )
         {
             _nearObject = other.gameObject;
-            Debug.Log(_nearObject.name);
+            //Debug.Log(_nearObject.name);
         }
          
     }
+
+    
 
   
 }
